@@ -1,0 +1,606 @@
+---
+title: 'Lab Final Exam'
+author: 'Semyon Skotnikov'
+output:
+        html_document:
+                highlight: default
+                theme: readable
+                toc: yes
+                number_sections: true
+                toc_depth: 5
+                toc_float:
+                        collapsed: false
+                        smooth_scroll: true
+editor_options: 
+  chunk_output_type: console
+---
+
+
+MAKE SURE YOU HAVE TURNED ON THE SCREEN RECORDING, SCREENSHARE, WEBCAM AND MICROPHONE!
+NO HEADPHONES, UNLESS YOU HAVE SELECTED "Include computer sound" when starting the screenshare in Zoom / OBS.
+
+
+
+
+
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+#-------------------------Package Installer--------------------------
+# load packages and install if missing
+# thanks to Richard Schwinn for the original code, http://stackoverflow.com/a/33876492
+# this code has been improved over time by Egor Kotov
+
+# list the packages you need
+p <- c('data.table', 'ggplot2', 'sf', 'dplyr', 'magrittr', 'corrgram', 'ggpubr', 'mapview', 'dplyr', 'leaflet', 'tmap', 'spdep', 'spatialreg', 'rgdal', 'leafgl', 'qpcR', 'plotly', 'RColorBrewer', 'lwgeom','sp','ggResidpanel')
+
+# this is a package loading function
+loadpacks <- function(package.list = p){
+new.packages <- package.list[!(package.list %in% installed.packages()[,'Package'])]
+  if(length(new.packages)) {
+    install.packages(new.packages, Ncpus = parallel::detectCores(), type = "binary", repos = "https://cran.rstudio.com")
+  }
+lapply(eval(package.list), require, character.only = TRUE)
+}
+
+loadpacks(p) # calling function to load and/or install packages
+rm(loadpacks, p) # cleanup namespace
+#----------------------End of Package Installer----------------------
+
+#------------------------------Options-------------------------------
+
+data.table::setDTthreads(threads = parallel::detectCores())
+options(scipen = 999)
+
+#---------------------------End of Options---------------------------
+
+main <- function() {
+    
+    
+    
+}
+
+rm(main)
+
+```
+
+
+# Code book
+
+You will be using a number of datasets in this lab.
+
+## income_est
+
+This dataset is a summary of income estimates (in british pounds) for 2002-2013 by London boroughs. The variables are as follows:
+
+- **Code** = unique area code
+- **Borough** = London borough
+- **the rest of the columns are dates** = Total Median Annual Household Income estimate for each year
+
+## qualifications
+
+This dataset is an extract from the full qualifications dataset - few variables are selected form the full data set and the year is 2011. The variables are as follows:
+
+- **Code** = unique area code
+- **Borough** = London borough
+- **share_qualified** = share of highly qualified people of working age (16-64)
+- **share_unqualified** = share of unqualified people of working age (16-64)
+
+# Load data
+
+## Load data from `income_est` file from `data` subfolder into a `data.table` or `tibble` object with a name of your choice.
+
+
+You might need to tell the function you are using to read the csv file that you have column names in the first row.
+
+```{r}
+income_est = fread('data/income_est.csv', header = TRUE)
+```
+
+## Load `qualifications` file from `data` subfolder into  a `data.table` or `tibble` object with a name of your choice.
+
+You might need to tell the function you are using to read the csv file that you have column names in the first row. For `fread()` it would be a `header = TRUE` parameter.
+
+```{r}
+qualifications = fread('data/qualifications.csv', header = TRUE)
+```
+
+
+
+# Get to know the datasets
+
+## Check the structure of the dataset with data from the `income_est` file
+
+
+```{r}
+str(income_est)
+```
+
+## Show first and last three lines of the dataset with data from the `income_est` file
+
+```{r}
+head(income_est, 3)
+tail(income_est, 3)
+```
+
+
+## Check the structure of the dataset with data from the `qualifications` file
+
+```{r}
+str(qualifications)
+```
+
+## Show first and last three lines of the dataset with data from the `qual` file
+
+```{r}
+head(qualifications, 3)
+tail(qualifications, 3)
+```
+
+# Transform and explore data
+
+## Transform data from the `income_est` file
+
+Transfrom from the `income_est` file so that it has the following columns:
+
+- **Code** = unique area code
+- **Borough** = London borough
+- **Year** = year
+- **Income** = median income in particular year
+
+You may name the variables as you like.
+
+Save the result to an object, give it any name you like.
+
+```{r}
+income_est_transformed <- melt.data.table(
+  income_est,
+  id.vars = c("Code", "Borough"),
+  measure.vars = c("2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013"),
+  variable.name = "Year",
+  value.name = "Income"
+)
+```
+
+## Print first few rows of the dataset transformed above
+
+```{r}
+head(income_est_transformed)
+```
+
+## Summarize data
+
+Using the dataset you created in the previous step, print top 5 boroughs by max income.
+
+
+```{r}
+income_est_transformed_grouped = income_est_transformed %>%
+	group_by(Borough) %>%
+	summarise(max_income = max(Income))
+
+income_est_transformed_grouped = income_est_transformed_grouped[order(income_est_transformed_grouped$max_income, decreasing = TRUE),]
+
+income_est_transformed_grouped[1:5,]
+```
+
+
+Using the dataset you created in the previous step, print only 6th to 10th top boroughs by income.
+
+
+```{r}
+income_est_transformed_grouped[6:10,]
+```
+
+## Plot top 10 boroughs
+
+Create a bar plot comparing the top 10 boroughs by income.
+
+Hint 1: use `stat = 'identity'` parameter for bar plot geom.
+Hint 2: use `+ coord_flip()` with your plot for better readability.
+
+```{r}
+ggplot(income_est_transformed_grouped[1:10,], aes(x = Borough, y = max_income)) + 
+  geom_bar(stat = 'identity') +
+  coord_flip() +
+  theme_light()
+```
+
+
+# Enrich the data
+
+Select only one year worth of data from `income_est` (choose the year that corresponds to the year of `qulifications` data) and save it as a new `data.table` or `tibble`. You should keep the `Code`, the `Borough` name and the `income` estimate column.
+
+```{r}
+#2011
+
+income_est_2011 = income_est %>%
+  dplyr::select('Code', 'Borough', '2011')
+
+income_est_2011 = income_est_2011 %>%
+  rename('Income' = '2011')
+```
+
+Merge your new income estimate table with the qualifications table and save the result as a new table (you should get a 32x5 table with Code, Borough, share qualified, share unqualified and estimated income columns, all variables should be for the same year or within 1 year):
+
+```{r}
+income_qual <- merge(income_est_2011,qualifications,by=c("Code","Borough"))
+```
+
+
+Create a scatter plot for each pair of variables in the new table Or you can create a corrgram for all variables at once if you recall how to do it from lab 6.
+```{r}
+#panel function for the corrgram
+panel.shadeNtext <- function (x, y, corr = NULL, col.regions, ...) 
+{
+      corr <- cor(x, y, use = "pair")
+      results <- cor.test(x, y, alternative = "two.sided")
+      est <- results$p.value
+      stars <- ifelse(est < 5e-4, "***", 
+                      ifelse(est < 5e-3, "**", 
+                             ifelse(est < 5e-2, "*", "")))
+      ncol <- 14
+      pal <- col.regions(ncol)
+      col.ind <- as.numeric(cut(corr, breaks = seq(from = -1, to = 1, 
+                                                   length = ncol + 1), include.lowest = TRUE))
+      usr <- par("usr")
+      rect(usr[1], usr[3], usr[2], usr[4], col = pal[col.ind], 
+           border = NA)
+      box(col = "lightgray")
+      on.exit(par(usr))
+      par(usr = c(0, 1, 0, 1))
+      r <- formatC(corr, digits = 2, format = "f")
+      cex.cor <- .8/strwidth("-X.xx")
+      fonts <- ifelse(stars != "", 2,1)
+      # option 1: stars:
+      text(0.5, 0.4, paste0(r,"\n", stars), cex = cex.cor)
+      # option 2: bolding:
+      #text(0.5, 0.5, r, cex = cex.cor, font=fonts)
+}
+```
+
+
+```{r}
+corrgram(income_qual, upper.panel = panel.pts, lower.panel = panel.shadeNtext, diag.panel = panel.density)
+```
+
+
+Test all variables for normality. Do you need to log-transform any variables? You may choose to answer that using plots or empirically (by trying to build models).
+
+```{r}
+#according to the distribution that we see on the corrgram, we don't need to log-transform any variable, I guess
+
+ggqqplot(income_qual$Income)
+ggqqplot(income_qual$share_qualified)
+ggqqplot(income_qual$share_unqualified)
+```
+
+Build a **multiple** linear regression model. Try to predict income by the shares of qualified and unqualified workforce.
+
+```{r}
+lnd_lm = lm(Income ~ share_qualified + share_unqualified, data = income_qual)
+```
+
+
+Print model summary:
+```{r}
+summary(lnd_lm)
+```
+
+Interpret the model by analysing the residuals and inspecting the key model summary coefficients.
+```{r}
+plot(lnd_lm)
+```
+
+# the R-squared is 0.63 which is above average and it means that 63% of income prediction can be predicted by the shares of qualified or unqualified workforce
+# the p-value of all the variables is below 0.05 - it means that all the variables are significant and don't ruin the model
+
+
+# Working with spatial data
+
+## Load spatial data
+
+Load `london_boroughs` spatial data from `data` sub folder to object with any name. Make sure it has the same number of borouhgs as your table from the previous part of the analysis.
+
+```{r}
+london_boroughs = st_read('data/london_boroughs.gpkg',
+                          layer = 'london_24')
+str(london_boroughs)
+```
+
+## Plot a map of boroughs boundaries you just loaded
+
+```{r}
+mapview(london_boroughs)
+```
+
+
+## Check the spatial object's data
+
+### Check the variable names of the spatial data set
+
+```{r}
+colnames(london_boroughs)
+```
+
+### Check the structure of the spatial data set
+
+```{r}
+str(london_boroughs)
+```
+
+## Subset your molten dataset
+
+## Merge qulification data with spatial data
+
+Merge/join your table (the one that you used for modelling above) to the spatial object. Show the structure of the resulting spatial object.
+
+```{r}
+income_qual_sf <- merge(income_qual,london_boroughs,
+                     by.x = c("Code","Borough"),
+                     by.y = c("GSS_CODE", 'NAME'
+                     ))
+income_qual_sf = st_as_sf(income_qual_sf)
+str(income_qual_sf)
+```
+
+## Plot spatial data
+
+Create a map showing income. Use ggplot, tmap or mapview, or any package you want.
+
+```{r}
+mapview(income_qual_sf, zcol='Income')
+```
+
+# Spatial models
+
+Now you have an option to try and improve the regression model that you have built previously. Does the model suffer from spatial autocorrelation? You may add additional code blocks to structure your code and make it cleaner.
+
+
+
+```{r}
+#identify the queen rook neighbors for each census tract in the dataset
+lnd_neighbors <- poly2nb(income_qual_sf, queen = TRUE)
+plot.nb(lnd_neighbors, st_geometry(income_qual_sf), lwd = 0.3)
+
+#create weights
+weights <- nb2listw(lnd_neighbors, style="W")
+```
+
+
+```{r}
+#Calculate the number of neighbours for every census tract and build a histogram of the number of neigbours
+n_nbrs_queen <- sapply(lnd_neighbors, length)
+table_nbrs <- data.table(queen = n_nbrs_queen)
+
+hist(table_nbrs$queen)
+```
+
+```{r}
+#get the lagged values
+income_qual_sf$lag_Income <- lag.listw(x = weights, income_qual_sf$Income)
+
+
+#moran plot
+gg_moran <- income_qual_sf %>%
+  ggplot() +
+  aes(x = Income, y = lag_Income) +
+  geom_point(shape = 1, alpha = 0.5) +
+  geom_hline(yintercept = mean(income_qual_sf$Income), lty=2) +
+  geom_vline(xintercept = mean(income_qual_sf$lag_Income), lty=2) + theme_minimal() +
+  geom_smooth(method = "lm") +
+  theme_pubclean()
+plotly::ggplotly(gg_moran)
+```
+
+```{r}
+# perform global Moran's test for the "Income" and "share qualified" variables
+
+moran.mc(income_qual_sf$Income, listw = weights, nsim = 999)
+moran.mc(income_qual_sf$share_qualified, listw = weights, nsim = 999)
+
+
+#positive and significant statistic means clustering of similar values, so there is spatial autocorrelation
+```
+
+```{r}
+#Calculate local moran for the same two variables
+
+local_moran_income <- localmoran(x = income_qual_sf$Income, listw = weights)
+local_moran_qualified <- localmoran(x = income_qual_sf$share_qualified, listw = weights)
+
+hist(local_moran_income[,5], breaks = 20)
+hist(local_moran_qualified[,5], breaks = 20)
+```
+
+
+```{r}
+signif <- 0.05
+income_qual_sf$Income_sig <- local_moran_income[,5] # get the 5th column of the matrix - the `Pr(z > 0)` column
+income_qual_sf$Income_li <- local_moran_qualified[,1] - mean(local_moran_income[,1])
+
+income_qual_sf <- income_qual_sf %>% mutate(quad_sig_Income = case_when(Income_sig > signif ~ "non-significant",
+                                                      Income > 0 & lag_Income > 0 & Income_sig <= signif ~ "high-high",
+                                              Income < 0 & lag_Income < 0 & Income_sig <= signif ~ "low-low",
+                                              Income > 0 & lag_Income < 0 & Income_sig <= signif ~ "high-low",
+                                              Income < 0 & lag_Income > 0 & Income_sig <= signif ~ "low-high"))
+
+table(income_qual_sf$quad_sig_Income)
+#we identified 6 high-high boroughs, and the rest are just insignificant
+
+#display the clusters on the map
+tm_shape(income_qual_sf) +
+    tm_fill(col = "quad_sig_Income", palette = c("low-low" = "blue", "high-high" = "red", "low-high" = "dodgerblue1", "high-low" = "salmon1", "non-significant" = "grey90")) +
+    tm_borders(col = "grey95", lwd = 0.1)
+
+#display the significance
+tm_shape(income_qual_sf) +
+    tm_fill(col = "Income_sig", palette = c(rev(brewer.pal(3, "Greens")), "grey99"), breaks = c(0,0.001,0.01,0.05,1) ) +
+    tm_borders(col = "grey80")
+
+```
+
+
+```{r}
+#Automate Moran + LISA clusters function
+var_test_spatial <- function(dataset,
+                             target_var_name,
+                             weights,
+                             log10_transform = F,
+                             local_moran_signif = 0.05,
+                             norm_plots = F) {
+  
+  
+  ## check if log_transform option is set to TRUE
+  if ( log10_transform == T ) { ## if TRUE
+    dataset[,target_var_name] <- log10(dataset %>% pull(target_var_name) +1)
+    
+    dataset <- dataset %>%
+      mutate(target_var_scaled = as.vector(scale( !!rlang::sym(target_var_name) )) )
+  }
+  
+  if ( log10_transform == F ) { ## if FALSE
+    dataset <- dataset %>%
+      mutate(target_var_scaled = as.vector(scale( !!rlang::sym(target_var_name )) ) )
+  }
+  
+  
+  
+  dataset <- dataset %>%
+    mutate(target_var_scaled_lag = lag.listw(x = weights, var = target_var_scaled))
+  
+  
+  moran_permutation_test <- moran.mc(dataset %>% pull(target_var_scaled),
+                                     listw = weights, nsim = 999)
+  
+  
+  
+  # moran_permutation_test$statistic
+  # moran_permutation_test$p.value
+  
+  gg_moran <- dataset %>%
+    ggplot() +
+    aes(x = target_var_scaled, y = target_var_scaled_lag) +
+    geom_point(shape = 1, alpha = 0.5) +
+    geom_hline(yintercept = mean(dataset %>% pull(target_var_scaled)), lty=2) +
+    geom_vline(xintercept = mean(dataset %>% pull(target_var_scaled_lag)), lty=2) +
+    geom_smooth(method = "lm") +
+    labs(title = paste0("Variable: ", target_var_name),
+         subtitle = paste0(" Moran I: ", round(moran_permutation_test$statistic, 4),
+                           " p: ", round(moran_permutation_test$p.value, 4))) +
+    theme_pubclean(base_size = 10) +
+    coord_cartesian(clip = "off")
+  gg_moran
+  
+  local_moran <- localmoran(x = dataset %>% pull(target_var_scaled), listw = weights)
+  
+  dataset <- dataset %>%
+    mutate(target_var_signif = local_moran[,5]) # get the 5th column of the matrix - the `Pr(z > 0)` column
+  
+  
+  dataset <- dataset %>% mutate(target_var_cluster = case_when(target_var_signif > local_moran_signif ~ "non-significant",
+                     target_var_scaled > 0 & target_var_scaled_lag > 0 & target_var_signif <= local_moran_signif ~ "high-high",
+                     target_var_scaled < 0 & target_var_scaled_lag < 0 & target_var_signif <= local_moran_signif ~ "low-low",
+                     target_var_scaled > 0 & target_var_scaled_lag < 0 & target_var_signif <= local_moran_signif ~ "high-low",
+                     target_var_scaled < 0 & target_var_scaled_lag > 0 & target_var_signif <= local_moran_signif ~ "low-high"))
+  
+  
+  local_moran_map <- dataset %>%
+    ggplot() +
+    aes(fill = target_var_cluster) +
+    geom_sf(lwd = 0.2) +
+    scale_fill_manual(values = c("low-low" = "blue", "high-high" = "red", "low-high" = "dodgerblue1", "high-low" = "salmon1", "non-significant" = "grey90")) +
+    labs(fill = "Cluster") +
+    theme_pubclean() +
+    theme(legend.position = "right")
+  local_moran_map
+  
+  
+  
+  ## set axis limits vairable to apply to all plots
+  axis_lim <- range(dataset %>% pull(target_var_name))
+  
+  ## create historgram
+  x_hist <- dataset %>%
+    ggplot() + ## create ggplot object
+    aes_string(x = target_var_name) + ## set aesthetics to x, our numeric vector
+    geom_histogram() + ## plot histogram
+    xlim(axis_lim) + ## set limits of the x axis to the predefined variable value
+    theme_pubclean() ## apply theme to the plot
+  
+  
+  ## create qqnorm
+  x_qqnorm <- dataset %>%
+    ggplot() +
+    stat_qq(aes_string(sample = target_var_name)) +
+    geom_abline(intercept = mean(dataset %>% pull(target_var_name), na.rm = T),
+                slope = sd(dataset %>% pull(target_var_name), na.rm = T)) +
+    ylim(axis_lim) +
+    labs(title = paste0 ("Distribution of ",
+                         target_var_name,
+                         ifelse(log10_transform == T, "\nLog-transformed", "\nNot log-transformed"))) +
+    theme_pubclean()
+  
+  if(norm_plots == F){
+    final_plot <- (gg_moran + local_moran_map)
+  } else {
+    final_plot <- (gg_moran + local_moran_map) / (x_hist + x_qqnorm)
+  }
+  
+  return(final_plot)
+}
+```
+
+```{r}
+#cannot plot, don't know why (it worked in lab exercise...)
+# var_test_spatial(dataset = income_qual_sf, target_var_name = "Income", weights = weights, log10_transform = F, norm_plots = T)
+```
+
+
+```{r}
+#Spatial Lag model
+lnd_laglm <- lagsarlm(Income ~ share_qualified + share_unqualified, data = income_qual_sf, listw = weights)
+
+summary(lnd_laglm)
+```
+
+
+```{r}
+#Spatial Error model
+lnd_errorlm <- errorsarlm(Income ~ share_qualified + share_unqualified, data = income_qual_sf, listw = weights)
+
+summary(lnd_errorlm)
+```
+
+
+```{r}
+qpcR::AICc(lnd_lm)
+qpcR::AICc(lnd_errorlm)
+qpcR::AICc(lnd_laglm)
+
+#the lower the AIC, the better
+#Thus, the simple linear regression model performs slightly better
+```
+
+# Write a function
+
+Write a function that finds a 5th root of the product of squares of 3 numbers - all passed as arguments into the function, and the result should be divided by some number passed as the fourth argument to that function. The second and third arguments default value is 1. The first argument has no default value. The output of the function is a printout like `You have entered numbers 3, 7 and 8. The result rounded to 2 digits is: 7.76`. In any case, try to build the function in its basic form. You may not, for example, be able to create a proper printout for the function, but the result of the calculation may be correct.
+
+Define your function below:
+
+```{r}
+product_root_divide = function(x,y=1,z=1, n) {
+  
+  message(paste('You have entered numbers', paste0(x,',', y,',', z, ',', n),'\nThe result rounded to 2 digits is', 
+                format(signif(
+                  ((x*y*z) ^ (1/5))/n), digits = 2)
+  )
+  )
+}
+```
+
+Test your function three times with different values for parameters in the code chunk below:
+
+```{r}
+product_root_divide(1,3,3,7)
+product_root_divide(3,2,2,8)
+product_root_divide(2,0,2,3)
+```

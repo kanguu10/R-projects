@@ -1,0 +1,357 @@
+---
+title: 'Lab Final Exam'
+author: 'STUDENT NAME AND SURNAME'
+output:
+        html_document:
+                highlight: default
+                theme: readable
+                toc: yes
+                number_sections: true
+                toc_depth: 5
+                toc_float:
+                        collapsed: false
+                        smooth_scroll: true
+---
+
+
+MAKE SURE YOU HAVE TURNED ON THE SCREEN RECORDING, SCREENSHARE, WEBCAM AND MICROPHONE!
+NO HEADPHONES, UNLESS YOU HAVE SELECTED "Include computer sound" when starting the screenshare in Zoom / OBS.
+
+
+
+
+
+
+```{r warning=FALSE, message=FALSE, results='hide'}
+#-------------------------Package Installer--------------------------
+# load packages and install if missing
+# thanks to Richard Schwinn for the original code, http://stackoverflow.com/a/33876492
+# this code has been improved over time by Egor Kotov
+
+# list the packages you need
+p <- c('data.table', 'ggplot2', 'sf')
+
+# this is a package loading function
+loadpacks <- function(package.list = p){
+new.packages <- package.list[!(package.list %in% installed.packages()[,'Package'])]
+  if(length(new.packages)) {
+    install.packages(new.packages, Ncpus = parallel::detectCores(), type = "binary", repos = "https://cran.rstudio.com")
+  }
+lapply(eval(package.list), require, character.only = TRUE)
+}
+
+loadpacks(p) # calling function to load and/or install packages
+rm(loadpacks, p) # cleanup namespace
+#----------------------End of Package Installer----------------------
+
+#------------------------------Options-------------------------------
+
+data.table::setDTthreads(threads = parallel::detectCores())
+options(scipen = 999)
+
+#---------------------------End of Options---------------------------
+
+main <- function() {
+    
+    
+    
+}
+
+rm(main)
+
+```
+
+
+# Code book
+
+You will be using a number of datasets in this lab.
+
+## income_est
+
+This dataset is a summary of income istimates (in british pounds) for 2002-2013 by London boroughs. The variables are as follows:
+
+- **Code** = unique area code
+- **Borough** = London borough
+- **the rest of the columns are dates** = Total Median Annual Household Income estimate for each year
+
+## qualifications
+
+This dataset is an extract from the full qualifications dataset - few variables are selected form the full data set and the year is 2011. The variables are as follows:
+
+- **Code** = unique area code
+- **Borough** = London borough
+- **share_qualified** = share of highly qualified people of working age (16-64)
+- **share_unqualified** = share of unqualified people of working age (16-64)
+
+# Load data
+
+## Load data from `income_est` file from `data` subfolder into a `data.table` or `tibble` object with a name of your choice.
+
+
+You might need to tell the function you are using to read the csv file that you have column names in the first row.
+
+```{r}
+
+```
+
+## Load `qualifications` file from `data` subfolder into  a `data.table` or `tibble` object with a name of your choice.
+
+You might need to tell the function you are using to read the csv file that you have column names in the first row. For `fread()` it would be a `header = TRUE` parameter.
+
+```{r}
+
+```
+
+
+
+# Get to know the datasets
+
+## Check the structure of the dataset with data from the `income_est` file
+
+
+```{r}
+
+```
+
+## Show first and last three lines of the dataset with data from the `income_est` file
+
+```{r}
+
+```
+
+
+## Check the structure of the dataset with data from the `qualifications` file
+
+```{r}
+
+```
+
+## Show first and last three lines of the dataset with data from the `qual` file
+
+```{r}
+
+```
+
+# Transform and explore data
+
+## Transform data from the `income_est` file
+
+Transfrom from the `income_est` file so that it has the following columns:
+
+- **Code** = unique area code
+- **Borough** = London borough
+- **Year** = year
+- **Income** = median income in particular year
+
+You may name the variables as you like.
+
+Save the result to an object, give it any name you like.
+
+```{r}
+
+```
+
+## Print first few rows of the dataset transformed above
+
+```{r}
+
+```
+
+## Summarize data
+
+Using the dataset you created in the previous step, print top 5 boroughs by max income.
+
+
+```{r}
+
+```
+
+
+Using the dataset you created in the previous step, print only 6th to 10th top boroughs by income.
+
+
+```{r}
+
+```
+
+## Plot top 10 boroughs
+
+Create a bar plot comparing the top 10 boroughs by income.
+
+Hint 1: use `stat = 'identity'` parameter for bar plot geom.
+Hint 2: use `+ coord_flip()` with your plot for better readability.
+
+```{r}
+
+```
+
+
+# Enrich the data
+
+Select only one year worth of data from `income_est` (choose the year that corresponds to the year of `qulifications` data) and save it as a new `data.table` or `tibble`. You should keep the `Code`, the `Borough` name and the `income` estimate column.
+
+```{r}
+
+```
+
+Merge your new income estimate table with the qualifications table and save the result as a new table (you should get a 32x5 table with Code, Borough, share qualified, share unqualified and estimated income columns, all variables should be for the same year or within 1 year):
+
+```{r}
+
+```
+
+
+Create a scatter plot for each pair of variables in the new table Or you can create a corrgram for all variables at once if you recall how to do it from lab 6.
+
+
+```{r}
+
+```
+
+
+Test all variables for normality. Do you need to log-transform any variables? You may choose to answer that using plots or empirically (by trying to build models).
+
+```{r}
+
+```
+
+Build a **multiple** linear regression model. Try to predict income by the shares of qualified and unqualified workforce.
+
+```{r}
+
+```
+
+
+Print model summary:
+```{r}
+
+```
+
+Interpret the model by analysing the residuals and inspecting the key model summary coefficients.
+```{r}
+
+```
+Apart from code, provide a brief description of how you can interpret the results.
+
+
+Do you think the model may suffer from spatial autocorrelation? You will be able to explore this later in the lab.
+
+
+# Working with spatial data
+
+## Load spatial data
+
+Load `london_boroughs` spatial data from `data` sub folder to object with any name. Make sure it has the same number of borouhgs as your table from the previous part of the analysis.
+
+```{r}
+
+```
+
+## Plot a map of boroughs boundaries you just loaded
+
+```{r}
+
+```
+
+
+## Check the spatial object's data
+
+### Check the variable names of the spatial data set
+
+
+
+```{r}
+
+```
+
+### Check the structure of the spatial data set
+
+```{r}
+
+```
+
+
+## Subset your molten dataset
+
+## Merge qulification data with spatial data
+
+Merge/join your table (the one that you used for modelling above) to the spatial object. Show the structure of the resulting spatial object.
+
+```{r}
+
+```
+
+## Plot spatial data
+
+Create a map showing income. Use ggplot, tmap or mapview, or any package you want.
+
+```{r}
+
+```
+
+# Spatial models
+
+Now you have an option to try and improve the regression model that you have built previously. Does the model suffer from spatial autocorrelation? You may add additional code blocks to structure your code and make it cleaner.
+
+
+```{r}
+
+```
+
+
+
+# Write a function
+
+Write a simple function with two parameters.
+
+This function must take as an sf object as a first parameter. The second parameter is a character vector of length one with the name of the variable that you want to create a histogram for. The function log-transforms the variable specified via the 2nd parameter and creates a histogram with title "Log-transformed variable histogram".
+
+If you cannot write such function, write a function that finds a 5th root of the product of squares of 3 numbers - all passed as arguments into the function, and the result should be divided by some number passed as the fourth argument to that function. The second and third arguments default value is 1. The first argument has no default value. The output of the function is a printout like `You have entered numbers 3, 7 and 8. The result rounded to 2 digits is: 7.76`. In any case, try to build the function in its basic form. You may not, for example, be able to create a proper printout for the function, but the result of the calculation may be correct.
+
+Define your function below:
+
+```{r}
+
+```
+
+Test your function three times with different values for parameters in the code chunk below:
+
+```{r}
+
+```
+
+## Error checking
+
+Rewrite your function in such a way that it checks if the name of the variable to log-transform and creates a histogram that you are passing to it actually exists in the dataset. If it does not exist, return and error message with `print()` instead of trying to plot the variable that does not exist.
+
+```{r}
+
+```
+
+
+<!-- This is a style section, do not delete it. -->
+<!-- Heading 5 will be used for grader's remarks. -->
+
+<style>
+        h5 {
+                color: red;
+                font-family: Arial,Helvetica Neue,Helvetica,sans-serif;
+        }
+</style>
+
+<br>
+<!-- ------------------------------------------------- -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
